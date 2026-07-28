@@ -1,0 +1,25 @@
+-- Run this against the real dictionaries.db, wherever it lives locally:
+--   pgloader migrate/pgloader.load
+--
+-- Migrates the base tables (entries, definitions, sources, chinese_sentences,
+-- nonchinese_sentences, sentence_links, definitions_chinese_sentences_links)
+-- into the `dictionary` schema. The entries_fts / definitions_fts FTS5 virtual
+-- tables have no Postgres equivalent and are not real tables pgloader can
+-- introspect, so they are excluded rather than migrated — full-text search is
+-- rebuilt from scratch in 002_search_indexes.sql against the migrated columns.
+
+LOAD DATABASE
+     FROM sqlite:///path/to/dictionaries.db
+     INTO postgresql:///cantoboon?options=--search_path=dictionary
+
+WITH include drop, create tables, create indexes, reset sequences,
+     downcase identifiers
+
+EXCLUDING TABLE NAMES MATCHING ~/_fts/
+
+SET PostgreSQL PARAMETERS
+    maintenance_work_mem to '256MB',
+    work_mem to '32MB'
+
+BEFORE LOAD DO
+    $$ CREATE SCHEMA IF NOT EXISTS dictionary; $$;
